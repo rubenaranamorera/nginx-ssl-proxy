@@ -1,4 +1,4 @@
-#nginx-ssl-proxy
+# nginx-ssl-proxy
 > based on [GoogleCloudPlatform/nginx-ssl-proxy](https://github.com/GoogleCloudPlatform/nginx-ssl-proxy)
 
 This repository is used to build a Docker image that acts as an HTTP [reverse proxy](http://en.wikipedia.org/wiki/Reverse_proxy) with optional (but strongly encouraged) support for acting as an [SSL termination proxy](http://en.wikipedia.org/wiki/SSL_termination_proxy). The proxy can also be configured to enforce [HTTP basic access authentication](http://en.wikipedia.org/wiki/Basic_access_authentication). Nginx is the HTTP server, and its SSL configuration is included (and may be modified to suit your needs) at `nginx/proxy_ssl.conf` in this repository.
@@ -15,16 +15,16 @@ docker build -t freemountain/nginx-ssl-proxy .
 ### Create Data Container
 
 #### Bootstrap with self signed certificate
+The init script creates a self-signed wildcard certificate for ```DOMAIN``` and a dhparam file:
 
-    The init script creates a self-signed wildcard certificate for $DOMAIN and a dhparam file:
+```shell
+docker run \
+  --name ssl-data \
+  --entrypoint /usr/src/init.sh \
+  -e DOMAIN=<your_domain>
+  freemountain/nginx-ssl-proxy
+```
 
-    ```shell
-    docker run \
-      --name ssl-data \
-      --entrypoint /usr/src/init.sh \
-      -e DOMAIN=<your_domain>
-      freemountain/nginx-ssl-proxy
-    ```
 #### Use existing certificates
 You can build a custom image containing your certfiles. Then use this image to create your data Container. (not tested).
 
@@ -58,14 +58,13 @@ docker run \
 ### Enable Basic Access Authentication
 
 ### Create htpasswd file
-On bootstrapping you can add the environment variables HTPSSWD_USER and HTPSSWD_PW
+On bootstrapping you can add the environment variables ```HTPSSWD_USER``` and ```HTPSSWD_PW```
 to create a httpasswd file
 
 ### Tell nginx to use htpasswd file
-Just set ENABLE_BASIC_AUTH=true when you launch your proxy container.
+Just set ```ENABLE_BASIC_AUTH=true``` when you launch your proxy container.
 
 ### Example
-
 ```shell
 docker run \
   --name ssl-data \
