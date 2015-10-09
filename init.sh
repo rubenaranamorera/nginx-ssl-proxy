@@ -7,7 +7,7 @@ if [ ! -f "$SECRETS_PATH/dhparam" ]; then
 fi
 
 if [ ! -f "$SECRETS_PATH/proxykey" ]; then
-    openssl genrsa -out "$SECRETS_PATH/proxykey" 1024
+    openssl genrsa -out "$SECRETS_PATH/proxykey" 2048
 fi
 
 if [ -z "${DOMAIN+x}" ]; then
