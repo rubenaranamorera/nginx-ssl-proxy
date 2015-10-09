@@ -17,12 +17,12 @@
 
 FROM nginx
 
-MAINTAINER Evan Brown <evanbrown@google.com>
-
+RUN apt-get update && apt-get -y install apache2-utils && apt-get clean
 RUN rm /etc/nginx/conf.d/*.conf
-
+VOLUME ["/etc/secrets"]
 WORKDIR /usr/src
 
+ADD init.sh /usr/src/
 ADD start.sh /usr/src/
 ADD nginx/nginx.conf /etc/nginx/
 ADD nginx/proxy*.conf /usr/src/

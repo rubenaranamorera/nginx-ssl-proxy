@@ -1,66 +1,83 @@
 #nginx-ssl-proxy
+> based on [GoogleCloudPlatform/nginx-ssl-proxy](https://github.com/GoogleCloudPlatform/nginx-ssl-proxy)
+
 This repository is used to build a Docker image that acts as an HTTP [reverse proxy](http://en.wikipedia.org/wiki/Reverse_proxy) with optional (but strongly encouraged) support for acting as an [SSL termination proxy](http://en.wikipedia.org/wiki/SSL_termination_proxy). The proxy can also be configured to enforce [HTTP basic access authentication](http://en.wikipedia.org/wiki/Basic_access_authentication). Nginx is the HTTP server, and its SSL configuration is included (and may be modified to suit your needs) at `nginx/proxy_ssl.conf` in this repository.
 
 ## Building the Image
 Build the image yourself by cloning this repository then running:
 
 ```shell
-docker build -t nginx-ssl-proxy .
+docker build -t freemountain/nginx-ssl-proxy .
 ```
 
-## Using with Kubernetes
-This image is optimized for use in a Kubernetes cluster to provide SSL termination for other services in the cluster. It should be deployed as a [Kubernetes replication controller](https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/replication-controller.md) with a [service and public load balancer](https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md) in front of it. SSL certificates, keys, and other secrets are managed via the [Kubernetes Secrets API](https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/design/secrets.md).
-
-Here's how the replication controller and service would function terminating SSL for Jenkins in a Kubernetes cluster:
-
-![](img/architecture.png)
-
-See [https://github.com/GoogleCloudPlatform/kube-jenkins-imager](https://github.com/GoogleCloudPlatform/kube-jenkins-imager) for a complete tutorial that uses the `nginx-ssl-proxy` in Kubernetes.
-
 ## Run an SSL Termination Proxy from the CLI
-To run an SSL termination proxy you must have an existing SSL certificate and key. These instructions assume they are stored at /path/to/secrets/ and named `cert.crt` and `key.pem`. You'll need to change those values based on your actual file path and names.
 
-1. **Create a DHE Param**
+### Create Data Container
 
-    The nginx SSL configuration for this image also requires that you generate your own DHE parameter. It's easy and takes just a few minutes to complete:
+#### Bootstrap with self signed certificate
 
-    ```shell
-    openssl dhparam -out /path/to/secrets/dhparam.pem 2048
-    ```
-
-2. **Launch a Container**
-
-    Modify the below command to include the actual address or host name you want to proxy to, as well as the correct /path/to/secrets for your certificate, key, and dhparam:
+    The init script creates a self-signed wildcard certificate for $DOMAIN and a dhparam file:
 
     ```shell
     docker run \
-      -e ENABLE_SSL=true \
-      -e TARGET_SERVICE=THE_ADDRESS_OR_HOST_YOU_ARE_PROXYING_TO \
-      -v /path/to/secrets/cert.crt:/etc/secrets/proxycert \
-      -v /path/to/secrets/key.pem:/etc/secrets/proxykey \
-      -v /path/to/secrets/dhparam.pem:/etc/secrets/dhparam \
-      nginx-ssl-proxy
+      --name ssl-data \
+      --entrypoint /usr/src/init.sh \
+      -e DOMAIN=<your_domain>
+      freemountain/nginx-ssl-proxy
     ```
-    The really important thing here is that you map in your cert to `/etc/secrets/proxycert`, your key to `/etc/secrets/proxykey`, and your dhparam to `/etc/secrets/dhparam` as shown in the command above. 
+#### Use existing certificates
+You can build a custom image containing your certfiles. Then use this image to create your data Container. (not tested).
 
-3. **Enable Basic Access Authentication**
+```Dockerfile
+FROM freemountain/nginx-ssl-proxy
+ADD /path/to/your/proxykey /etc/secrets/proxykey
+ADD /path/to/your/proxycert /etc/secrets/proxycert
+```
 
-    Create an htpaddwd file:
+### Launch a Proxy Container
+Modify the below command to include the actual container you want to proxy to (Note: the linked container should export port 80):
 
-    ```shell
-    htpasswd -nb YOUR_USERNAME SUPER_SECRET_PASSWORD > /path/to/secrets/htpasswd
-    ```
+```shell
+docker run \
+  -e ENABLE_SSL=true \
+  --link <container_id>:target \
+  --volumes-from ssl-data \
+  freemountain/nginx-ssl-proxy
+```
 
-    Launch the container, enabling the feature and mapping in the htpasswd file:
+You can also pass a specific host to proxy to:
 
-    ```shell
-    docker run \
-      -e ENABLE_SSL=true \
-      -e ENABLE_BASIC_AUTH=true \
-      -e TARGET_SERVICE=THE_ADDRESS_OR_HOST_YOU_ARE_PROXYING_TO \
-      -v /path/to/secrets/cert.crt:/etc/secrets/proxycert \
-      -v /path/to/secrets/key.pem:/etc/secrets/proxykey \
-      -v /path/to/secrets/dhparam.pem:/etc/secrets/dhparam \
-      -v /path/to/secrets/htpasswd:/etc/secrets/htpasswd \
-      nginx-ssl-proxy
-    ```
+```shell
+docker run \
+  -e ENABLE_SSL=true \
+  -e TARGET_SERVICE=<host_adress> \
+  --volumes-from ssl-data \
+  freemountain/nginx-ssl-proxy
+```
+
+### Enable Basic Access Authentication
+
+### Create htpasswd file
+On bootstrapping you can add the environment variables HTPSSWD_USER and HTPSSWD_PW
+to create a httpasswd file
+
+### Tell nginx to use htpasswd file
+Just set ENABLE_BASIC_AUTH=true when you launch your proxy container.
+
+### Example
+
+```shell
+docker run \
+  --name ssl-data \
+  --entrypoint /usr/src/init.sh \
+  -e HTPSSWD_USER=foo \
+  -e HTPSSWD_PW=bar \
+  freemountain/nginx-ssl-proxy
+
+docker run \
+  -e ENABLE_SSL=true \
+  -e ENABLE_BASIC_AUTH=true \
+  --link <container_id>:target \
+  --volumes-from ssl-data \
+  freemountain/nginx-ssl-proxy
+```
