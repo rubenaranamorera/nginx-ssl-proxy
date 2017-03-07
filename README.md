@@ -28,6 +28,8 @@ docker run \
   freemountain/nginx-ssl-proxy
 ```
 
+You can do this step during the proxy container launch setting environment variable ```ENABLE_AUTO_CERTS=true```.
+
 #### Use existing certificates
 You can build a custom image containing your certfiles. Then use this image to create your data Container. (not tested).
 

@@ -16,6 +16,9 @@
 if [ -n "${ENABLE_SSL+1}" ] && [ "${ENABLE_SSL,,}" = "true" ]; then
   echo "Enabling SSL..."
   cp /usr/src/proxy_ssl.conf /etc/nginx/conf.d/proxy.conf
+  if [ -n "${ENABLE_AUTO_CERTS+1}" ] && [ "${ENABLE_AUTO_CERTS,,}" = "true" ]; then
+    . ./init.sh
+  fi
 else
   # No SSL
   cp /usr/src/proxy_nossl.conf /etc/nginx/conf.d/proxy.conf
